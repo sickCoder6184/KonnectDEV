@@ -1,0 +1,20 @@
+{
+  "name": "connecting-dev",
+  "version": "1.0.0",
+  "description": "Connecting Dev Locally WorldWide",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start":"node src/app.js",
+    "dev":"nodemon src/app.js"
+  },
+  "keywords": [
+    "nodejs",
+    "Express"
+  ],
+  "author": "Preyanshu",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^5.1.0"
+  }
+}
