@@ -28,5 +28,11 @@ app.get("/user/login", (req, res) => {
 app.get("/user/profile", (req, res) => {
     res.send("User profile accessed successfully!");
 });
+ //-----------default to prevent error-------
 
+app.use("/",(err,req,res,next)=>{
+    if (err) {
+        res.status(500).send("Something Went Wrong");
+    }
+})
 app.listen(3000, () => console.log("Server running on http://localhost:3000"));
