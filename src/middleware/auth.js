@@ -40,4 +40,26 @@ const userAuth = async (req, res, next) => {
   }
 };
 
-module.exports = { userAuth };
+const softAuth = async (req, res, next) => {
+  const { token } = req.cookies || {};
+
+  if (!token) {
+    req.user = null;
+    return next();
+  }
+
+  try {
+    const decodedMsg = jwt.verify(token, "Secret_key@123");
+    const user = await User.findById(decodedMsg._id);
+    req.user = user || null;
+  } catch {
+    req.user = null;
+  }
+
+  next();
+};
+
+module.exports = { 
+  userAuth,
+  softAuth
+};

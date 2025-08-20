@@ -135,11 +135,11 @@ const userSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-userSchema.methods.getJWT = async function () {
+userSchema.methods.getJWT = function () {
   // "this" keyword will not work with arrow function
   const user = this;
 
-  const token = await jwt.sign({ _id: user._id }, "Secret_key@123", {
+  const token = jwt.sign({ _id: user._id }, "Secret_key@123", {
     expiresIn: "7d",
   });
 
