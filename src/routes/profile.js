@@ -36,29 +36,51 @@ profileRouter.get("/profile", userAuth, async (req, res) => {
 
 profileRouter.patch("/profile/edit", userAuth, async (req, res) => {
   try {
+    // Validate request
     if (!validateEditProfile(req)) {
-      return res.status(400).send("Invalid Edit Request");
+      return res.status(400).json({ message: "Invalid Edit Request" });
     }
 
     const loggedInUser = req.user;
 
-    Object.keys(req.body).forEach(
-      (field) => (loggedInUser[field] = req.body[field])
-    );
+    // Validate required fields
+    const { firstName, lastName, age, gender } = req.body;
+    
+    if (!firstName?.trim()) {
+      return res.status(400).json({ message: "First name is required" });
+    }
+    if (!lastName?.trim()) {
+      return res.status(400).json({ message: "Last name is required" });
+    }
+    if (!age || age < 18 || age > 60) {
+      return res.status(400).json({ message: "Age must be between 18-60" });
+    }
+    if (!gender || !["male", "female", "others"].includes(gender)) {
+      return res.status(400).json({ message: "Valid gender is required" });
+    }
 
+    // Update fields
+    Object.keys(req.body).forEach((field) => {
+      loggedInUser[field] = req.body[field];
+    });
+
+    // Save user
     await loggedInUser.save();
 
     res.json({
-      message: `${loggedInUser.firstName} your proifile is Updated`,
+      message: `${loggedInUser.firstName} your profile is updated`,
       data: loggedInUser,
     });
+
   } catch (err) {
+    console.error("Profile update error:", err);
     return res.status(500).json({
-      error: "Failed to fetch profile",
-      details: formatValidationErrors(err),
+      message: "Failed to update profile",
+      error: err.message
     });
   }
 });
+
 
 profileRouter.patch("/profile/update-password", userAuth, async (req, res) => {
   try {

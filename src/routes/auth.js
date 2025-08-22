@@ -65,9 +65,6 @@ authRouter.post("/signUp", async (req, res) => {
 });
 
 
-
-
-
 authRouter.post("/login", async (req, res) => {
   try {
     // Extract login credentials
@@ -107,7 +104,9 @@ authRouter.post("/login", async (req, res) => {
     // Set token
     res.cookie("token", token, { expires: new Date(Date.now() + 8 * 3600000) });
 
-    return res.json({ message: "Login successful" });
+    return res.json({ message: "Login successful" ,
+      data:user
+    });
   } catch (err) {
     console.error("Login Error:", err);
     return res.status(500).json({

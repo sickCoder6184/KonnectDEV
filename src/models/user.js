@@ -3,6 +3,12 @@ const validator = require("validator");
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 
+// Helpers (minimal, targeted)
+const capitalizeFirst = (v) => {
+  if (!v || typeof v !== 'string') return v;
+  return v.charAt(0).toUpperCase() + v.slice(1);
+};
+
 // User Schema
 const userSchema = new mongoose.Schema(
   {
@@ -83,6 +89,8 @@ const userSchema = new mongoose.Schema(
         message: "Gender must be either male, female, or others",
       },
       required: [true, "Gender is required"],
+      set: (v) => (typeof v === 'string' ? v.trim().toLowerCase() : v), // store normalized lowercase
+      get: (v) => capitalizeFirst(v), // output capitalized (Male/Female/Others)
     },
     photo: {
       type: String,
@@ -132,7 +140,7 @@ const userSchema = new mongoose.Schema(
       default: [],
     },
   },
-  { timestamps: true }
+  { timestamps: true, toJSON: { getters: true }, toObject: { getters: true } } // enable getters in outputs
 );
 
 userSchema.methods.getJWT = function () {
@@ -146,16 +154,17 @@ userSchema.methods.getJWT = function () {
   return token;
 };
 
-userSchema.methods.validatePassword=async function (passwordInputByUser) {
-  const user=this;
-  const passwordHash=user.password
+userSchema.methods.validatePassword = async function (passwordInputByUser) {
+  const user = this;
+  const passwordHash = user.password;
 
-  const isValidPassword=await bcrypt.compare(
-    passwordInputByUser, 
+  const isValidPassword = await bcrypt.compare(
+    passwordInputByUser,
     passwordHash
   );
 
   return isValidPassword;
-}
+};
+
 const User = mongoose.model("User", userSchema);
 module.exports = User;

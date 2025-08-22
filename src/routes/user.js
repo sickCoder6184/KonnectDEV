@@ -4,6 +4,8 @@ const userRouter = express.Router();
 
 const Users = require("../models/user");
 const ConnectionRequest = require("../models/connectionRequest");
+const { buildFeedQuery } = require('../utils/feedQueryBuilder');
+const { buildFiltersResponse, handleFeedError } = require('../utils/responseHelpers');
 
 const USER_SAFE_VALUE = "firstName lastName age gender photo bio skills";
 
@@ -103,63 +105,53 @@ userRouter.get("/user/requests/my-connection", userAuth, async (req, res) => {
 });
 
 //feed
+
 userRouter.get("/user/feed", userAuth, async (req, res) => {
   try {
     const loggedInUser = req.user;
-
-    const page = parseInt(req.query.page) || 1;
-
-    //tries to Exceed limit do this
-    let limit = parseInt(req.query.limit) || 10;
-    limit = limit > 50 ? 50 : limit;
-
+    
+    // Parse pagination
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(50, Math.max(1, parseInt(req.query.limit) || 10));
     const skip = (page - 1) * limit;
 
-    // Find all connection requests involving the logged-in user
-    // This includes both sent and received requests
-    const connectionRequests = await ConnectionRequest.find({
-      $or: [{ fromUserId: loggedInUser._id }, { toUserId: loggedInUser._id }],
-    });
+    // Build search query
+    const searchQuery = await buildFeedQuery(loggedInUser._id, req.query);
+    
+    // Execute queries in parallel
+    const [totalUsers, discoverUsers] = await Promise.all([
+      Users.countDocuments(searchQuery),
+      Users.find(searchQuery)
+        .select(USER_SAFE_VALUE)
+        .skip(skip)
+        .limit(limit)
+        .lean()
+    ]);
 
-    // Create a Set to store user IDs that should be hidden from feed
-    // Using Set for O(1) lookup performance
-    const hideUserFromFeed = new Set();
-
-    // Add all users who have connection requests with logged-in user to the hide list
-    connectionRequests.forEach((request) => {
-      hideUserFromFeed.add(request.fromUserId.toString());
-      hideUserFromFeed.add(request.toUserId.toString());
-    });
-
-    // Find users to show in feed by excluding:
-    // 1. Users with existing connection requests
-    // 2. The logged-in user themselves
-    const discoverUsers = await Users.find({
-      $and: [
-        // Exclude users with connection requests
-        { _id: { $nin: Array.from(hideUserFromFeed) } },
-        { _id: { $ne: loggedInUser._id } }, // Exclude self
-      ],
-    })
-      .select(USER_SAFE_VALUE)
-      .skip(skip)
-      .limit(limit);
-
-      
-
-    // Send successful response with user list
-    res.status(200).json({
+    // Build response
+    const totalPages = Math.ceil(totalUsers / limit);
+    res.json({
       success: true,
-      message: "Feed users retrieved successfully",
+      message: "Feed retrieved successfully",
       data: discoverUsers,
       count: discoverUsers.length,
+      pagination: {
+        page,
+        limit,
+        total: totalUsers,
+        totalPages,
+        hasNext: page < totalPages,
+        hasPrev: page > 1
+      },
+      filters: buildFiltersResponse(req.query)
     });
+
   } catch (err) {
-    console.error("Error fetching connections:", err);
-    res.status(500).json({
-      error: "Failed to fetch connections.",
-      details: err.message || "Unknown error",
-    });
+    console.error("Feed fetch error:", err);
+    handleFeedError(err, res);
   }
 });
+
+
+
 module.exports = userRouter;

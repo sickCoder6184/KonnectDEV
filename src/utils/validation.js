@@ -17,12 +17,9 @@ const formatValidationErrors = (err) => {
 };
 
 const validateEditProfile = (req) => {
-  const allowedEditFields = ["age", "photo", "bio", "skills"];
-  const bodyFields = Object.keys(req.body);
-
-  if (bodyFields.length === 0) return false;
-
-  return bodyFields.every((field) => allowedEditFields.includes(field));
+  const ALLOWED_FIELDS = ["firstName", "lastName", "age", "gender", "bio", "skills", "photo"];
+  const isValidOperation = Object.keys(req.body).every(field => ALLOWED_FIELDS.includes(field));
+  return isValidOperation;
 };
 
 const validatePasswordField = (req) => {
