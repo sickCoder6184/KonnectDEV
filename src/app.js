@@ -4,6 +4,7 @@ const { connectDB } = require("./config/db");
 var cors = require('cors')
  const app = express();
 
+ require("dotenv").config()
 // Middleware setup
 
 //WhiteListing The Origin
@@ -29,7 +30,7 @@ app.use("/",userRouter)
 connectDB()
   .then(() => {
     console.log("✅ Database connection established");
-    app.listen(3000, () => {
+    app.listen(process.env.PORT, () => {
       console.log("🚀 Server running on http://localhost:3000");
     });
   })

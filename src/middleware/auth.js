@@ -2,7 +2,7 @@
 const jwt = require("jsonwebtoken");
 const User = require("../models/user");
 const { formatValidationErrors } = require("../utils/validation");
-
+ require("dotenv").config()
 
 
 const userAuth = async (req, res, next) => {
@@ -17,7 +17,7 @@ const userAuth = async (req, res, next) => {
     let decodedMsg;
     try {
       // Verify JWT token and decode user ID
-      decodedMsg = jwt.verify(token, "Secret_key@123");
+      decodedMsg = jwt.verify(token, process.env.JWT_TOKEN);
     } catch (jwtErr) {
       return res.status(401).json({ error: "Invalid or expired token" });
     }
