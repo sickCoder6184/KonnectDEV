@@ -56,7 +56,9 @@ const initializeSocket = (server) => {
      *
      * We compute the secret room ID and join the socket to that room.
      */
-    socket.on("joinChat", ({ firstName, loggedInUserId, targetUserId }) => { // Fixed parameter name
+    socket.on("joinChat", ({ firstName, loggedInUserId, targetUserId }) => {
+      // Basic validation
+      if (!loggedInUserId || !targetUserId) return;
       // Compute stable, secret room identifier from the two user IDs
       const roomId = getSecretRoomId(loggedInUserId, targetUserId);
 
@@ -85,8 +87,31 @@ const initializeSocket = (server) => {
      */
     socket.on(
       "sendMessage",
-      async ({ firstName, lastName, loggedInUserId, targetUserId, text }) => { // Fixed parameter name
+      async ({ firstName, lastName, loggedInUserId, targetUserId, text }) => {
         try {
+          // Validate inputs
+          if (
+            !loggedInUserId ||
+            !targetUserId ||
+            typeof text !== "string" ||
+            !text.trim()
+          ) {
+            socket.emit("messageError", { message: "Invalid message payload" });
+            return;
+          }
+
+          if (!mongoose.Types.ObjectId.isValid(loggedInUserId) ||
+              !mongoose.Types.ObjectId.isValid(targetUserId)) {
+            socket.emit("messageError", { message: "Invalid user id(s)" });
+            return;
+          }
+
+          // Prevent sending messages to self if undesired
+          if (loggedInUserId === targetUserId) {
+            socket.emit("messageError", { message: "Cannot send message to yourself" });
+            return;
+          }
+
           // Compute the same roomId used during join
           const roomId = getSecretRoomId(loggedInUserId, targetUserId);
           console.log(firstName + " " + text);
@@ -95,8 +120,22 @@ const initializeSocket = (server) => {
           const loggedInUserObjectId = new mongoose.Types.ObjectId(loggedInUserId);
           const targetUserObjectId = new mongoose.Types.ObjectId(targetUserId);
 
-          // TODO: Optionally check relationship/permissions:
-          // e.g., ensure users are connected/friends before allowing messages
+          // TODO completed: ensure users are connected/allowed to message each other
+          const connection = await ConnectionRequest.findOne({
+            $or: [
+              { fromUserId: loggedInUserObjectId, toUserId: targetUserObjectId },
+              { fromUserId: targetUserObjectId, toUserId: loggedInUserObjectId },
+            ],
+            status: "accepted",
+          }).lean();
+
+          if (!connection) {
+            socket.emit("messageError", {
+              message:
+                "You are not connected with this user. Send a connection request first.",
+            });
+            return;
+          }
 
           // Find an existing chat containing both participants (order-agnostic via $all)
           let chat = await Chat.findOne({
@@ -114,7 +153,8 @@ const initializeSocket = (server) => {
           // Append the new message with senderId and text
           chat.messages.push({
             senderId: loggedInUserObjectId, // Store as ObjectId, matches schema
-            text,
+            text: text.trim(),
+            createdAt: new Date(),
           });
 
           // Persist changes to MongoDB
@@ -122,10 +162,11 @@ const initializeSocket = (server) => {
 
           // Notify all sockets in the room about the new message
           // Client listens on "messageReceived"
-          io.to(roomId).emit("messageReceived", { firstName, lastName, text });
+          io.to(roomId).emit("messageReceived", { firstName, lastName, text: text.trim() });
         } catch (err) {
           // Any validation or DB errors will be logged here
           console.log("Error in sendMessage:", err);
+          socket.emit("messageError", { message: "Failed to send message" });
         }
       }
     );
